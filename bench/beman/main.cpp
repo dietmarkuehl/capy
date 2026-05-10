@@ -59,14 +59,24 @@ auto get_counting_resource() -> std::pmr::memory_resource*
 // result collection
 // ===================================================================
 
+template <class Tp>
+inline void do_not_optimize(Tp&& value) {
+  asm volatile("" : "+r,m"(value) : : "memory");
+}
+
 struct cell_result
 {
     long long ns = 0;
     int64_t allocs = 0;
 };
 
+#if 0
+static constexpr int OPS_PER_CELL = 20000; // 20'000'000;
+static constexpr int OUTER_LOOPS = 20; // 2'000;
+#else
 static constexpr int OPS_PER_CELL = 20'000'000;
 static constexpr int OUTER_LOOPS = 2'000;
+#endif
 static constexpr int INNER_LOOPS = 10'000;
 
 static constexpr int NUM_RUNS    = 5;
@@ -100,8 +110,8 @@ capy::task<> capy_session(Stream& stream)
 {
     char buf[64];
     for (int i = 0; i < INNER_LOOPS; ++i)
-        (void)co_await stream.read_some(
-            capy::mutable_buffer(buf, sizeof(buf)));
+        do_not_optimize(co_await stream.read_some(
+            capy::mutable_buffer(buf, sizeof(buf))));
 }
 
 template <class Stream>
@@ -134,9 +144,9 @@ capy::task<> capy_session_sndr(Stream& stream)
 {
     char buf[64];
     for (int i = 0; i < INNER_LOOPS; ++i)
-        (void)co_await capy::await_sender(
+        do_not_optimize(co_await capy::await_sender(
             stream.read_some(
-                capy::mutable_buffer(buf, sizeof(buf))));
+                capy::mutable_buffer(buf, sizeof(buf)))));
 }
 
 template <class Stream>
@@ -170,8 +180,8 @@ auto bex_session(
 {
     char buf[64];
     for (int i = 0; i < INNER_LOOPS; ++i)
-        (void)co_await stream.read_some(
-            capy::mutable_buffer(buf, sizeof(buf)));
+        do_not_optimize(co_await stream.read_some(
+            capy::mutable_buffer(buf, sizeof(buf))));
 }
 
 template <class Stream>
@@ -209,9 +219,9 @@ auto bex_session_ioaw(
 {
     char buf[64];
     for (int i = 0; i < INNER_LOOPS; ++i)
-        (void)co_await capy::as_sender(
+        do_not_optimize(co_await capy::as_sender(
             stream.read_some(
-                capy::mutable_buffer(buf, sizeof(buf))));
+                capy::mutable_buffer(buf, sizeof(buf)))));
 }
 
 template <class Stream>
