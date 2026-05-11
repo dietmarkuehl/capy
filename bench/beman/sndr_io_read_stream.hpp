@@ -36,8 +36,7 @@ struct sndr_io_read_stream_impl : sndr_io_read_stream
     sndr_any_read_some_sender
         read_some(boost::capy::mutable_buffer buf) override
     {
-        rep.emplace(stream_.read_some(buf));
-        return sndr_any_read_some_sender(&*rep);
+        return sndr_any_read_some_sender(rep, stream_.read_some(buf));
     }
 };
 

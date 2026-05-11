@@ -79,18 +79,26 @@ namespace ex = beman::execution;
 
         inner_state_base* inner_state;
 
-        explicit sndr_any_read_some_sender(inner_state_base* st)
-            : inner_state(st)
+        template <typename Sndr>
+        struct rep_t {
+            std::optional<sndr_any_read_some_sender::inner_state_t<Sndr>> inner;
+            sndr_any_read_some_sender::inner_state_t<Sndr>& emplace(Sndr sndr) {
+                return inner.emplace(std::move(sndr));
+            }
+        };
+
+        template <ex::sender Sndr>
+        explicit sndr_any_read_some_sender(rep_t<Sndr>& rep, Sndr sndr)
+            : inner_state(&rep.emplace(std::move(sndr)))
         {
             static_assert(ex::sender<sndr_any_read_some_sender>);
+            static_assert(ex::sender_in<sndr_any_read_some_sender>);
         }
         template <ex::receiver Rcvr>
         auto connect(Rcvr&& rcvr) && {
             static_assert(ex::operation_state<state<Rcvr>>);
             return state<Rcvr>(std::forward<Rcvr>(rcvr), inner_state);
         }
-        template <typename Sndr>
-        using rep_t = std::optional<sndr_any_read_some_sender::inner_state_t<Sndr>>;
     };
 
 // ----------------------------------------------------------------------------

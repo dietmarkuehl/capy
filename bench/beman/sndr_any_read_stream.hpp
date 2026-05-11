@@ -43,8 +43,7 @@ class sndr_any_read_stream
         {
         }
         sndr_any_read_some_sender read_some(boost::capy::mutable_buffer buf) override {
-            rep.emplace(stream.read_some(buf));
-            return sndr_any_read_some_sender(&*rep);
+            return sndr_any_read_some_sender(rep, stream.read_some(buf));
         }
     };
 
