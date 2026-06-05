@@ -10,10 +10,11 @@
 #ifndef BOOST_CAPY_BENCH_SNDR_ANY_READ_STREAM_HPP
 #define BOOST_CAPY_BENCH_SNDR_ANY_READ_STREAM_HPP
 
-#include "sndr_any_read_sender.hpp"
+#include "sndr_any_read_some_sender.hpp"
 
 #include <boost/capy/buffers.hpp>
 
+#include <memory>
 #include <utility>
 
 /// Standalone value-type erased sender stream.
@@ -24,44 +25,37 @@
 /// mechanism.
 class sndr_any_read_stream
 {
-    using read_some_fn = sndr_any_read_sender(*)(
-        void*, boost::capy::mutable_buffer);
-    using destroy_fn = void(*)(void*) noexcept;
+    struct stream_holder_base {
+        virtual ~stream_holder_base() = default;
+        virtual sndr_any_read_some_sender read_some(boost::capy::mutable_buffer) = 0;
+    };
 
-    void* stream_;
-    read_some_fn read_some_;
-    destroy_fn destroy_;
+    std::unique_ptr<stream_holder_base> stream_;
+
+    template <typename Stream>
+    struct stream_holder: stream_holder_base {
+        using sender_t = decltype(std::declval<Stream>().read_some(std::declval<boost::capy::mutable_buffer>()));
+
+        Stream                            stream;
+        sndr_any_read_some_sender::rep_t<sender_t> rep;
+        stream_holder(Stream s)
+            : stream(std::move(s))
+        {
+        }
+        sndr_any_read_some_sender read_some(boost::capy::mutable_buffer buf) override {
+            return sndr_any_read_some_sender(rep, stream.read_some(buf));
+        }
+    };
 
 public:
     template <class Stream>
     explicit sndr_any_read_stream(Stream s)
+        : stream_(new stream_holder<Stream>(std::move(s)))
     {
-        stream_ = new Stream(std::move(s));
-
-        read_some_ = +[](void* stor,
-            boost::capy::mutable_buffer buf)
-            -> sndr_any_read_sender
-        {
-            auto& stream = *static_cast<Stream*>(stor);
-            return sndr_any_read_sender{stream.read_some(buf)};
-        };
-
-        destroy_ = +[](void* stor) noexcept {
-            delete static_cast<Stream*>(stor);
-        };
     }
-
-    ~sndr_any_read_stream() { destroy_(stream_); }
-
-    sndr_any_read_stream(sndr_any_read_stream const&) = delete;
-    sndr_any_read_stream& operator=(sndr_any_read_stream const&) = delete;
-    sndr_any_read_stream(sndr_any_read_stream&&) = delete;
-    sndr_any_read_stream& operator=(sndr_any_read_stream&&) = delete;
-
-    sndr_any_read_sender
-        read_some(boost::capy::mutable_buffer buf)
+    sndr_any_read_some_sender read_some(boost::capy::mutable_buffer buf)
     {
-        return read_some_(stream_, buf);
+        return stream_->read_some(buf);
     }
 };
 
